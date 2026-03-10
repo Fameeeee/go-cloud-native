@@ -1,0 +1,49 @@
+name: Go CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26' 
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Run Linter
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+      - name: Run Tests
+        run: go test -v ./...
+
+      - name: Run Security Scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  docker-build:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image (Dry Run)
+        run: |
+          docker build -t go-cloud-native:test .
